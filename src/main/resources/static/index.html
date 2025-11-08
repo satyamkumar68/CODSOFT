@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tic-Tac-Toe AI</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .cell {
+            /* FIXED DIMENSIONS FOR EACH CELL */
+            width: 100px;
+            height: 100px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 4rem;
+            font-weight: bold;
+            color: #333;
+            background-color: #f8fafc; /* Cell background (white) */
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        .x-player {
+            color: #ef4444; /* Red */
+        }
+        .o-player {
+            color: #3b82f6; /* Blue */
+        }
+        #board-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 8px;
+            /* CRITICAL FIX: FIXED OUTER DIMENSIONS TO GUARANTEE SPACE */
+            width: 324px; 
+            height: 324px; 
+            margin: 20px auto;
+            /* Background color here acts as the grid lines (dark gray) */
+            background-color: #94a3b8; 
+            padding: 4px;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .error-message {
+            background-color: #ef4444;
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center justify-center font-sans p-4">
+
+    <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
+        <h1 class="text-3xl font-extrabold text-gray-800 text-center mb-2">Tic-Tac-Toe AI</h1>
+        <p class="text-center text-gray-500 mb-6">You (X) vs. Unbeatable Minimax AI (O)</p>
+
+        <!--error messesage-->
+        <div id="error-box" class="error-message hidden"></div>
+
+        <!-- Status Message Box -->
+        <div id="message-box" class="bg-blue-100 text-blue-800 p-3 rounded-lg text-center font-medium mb-6">
+            Click 'Start New Game' to begin.
+        </div>
+
+        <!-- Game Board Container -->
+        <div id="board-container">
+            <!-- Cells will be rendered here by JavaScript -->
+        </div>
+
+        <!-- Controls -->
+        <div class="mt-8">
+            <button 
+                id="new-game-button" 
+                onclick="startNewGame()" 
+                class="w-full py-3 px-6 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition duration-150 ease-in-out transform hover:scale-[1.02] active:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300"
+            >
+                Start New Game
+            </button>
+        </div>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        
+        const API_URL = '/api/game';
+
+        const boardContainer = document.getElementById('board-container');
+        const messageBox = document.getElementById('message-box');
+        const errorBox = document.getElementById('error-box');
+        const newGameButton = document.getElementById('new-game-button');
+
+        let isGameActive = false;
+        // Initialize currentBoard to an empty 3x3 array so renderBoard doesn't fail on load.
+        window.currentBoard = [[' ', ' ', ' '], [' ', ' ', ' '], [' ', ' ', ' ']]; 
+
+        // --- Utility Functions ---
+
+        function showMessage(text, isError = false) {
+            if (isError) {
+                errorBox.textContent = text;
+                errorBox.classList.remove('hidden');
+                messageBox.classList.add('hidden');
+            } else {
+                messageBox.textContent = text;
+                messageBox.classList.remove('hidden');
+                errorBox.classList.add('hidden');
+            }
+        }
+
+        // --- API Interactions ---
+
+            async function apiCall(endpoint, method = 'GET') {
+                try {
+                    console.log(`Making ${method} request to ${API_URL}${endpoint}`);
+                    const response = await fetch(API_URL + endpoint, { 
+                        method,
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    console.log('Response status:', response.status);
+                    const responseText = await response.text();
+                    console.log('Response text:', responseText);
+
+                    if (!response.ok) {
+                        throw new Error(`Server error ${response.status}: ${responseText}`);
+                    }
+
+                    // Try to parse JSON only if we have content
+                    let data;
+                    if (responseText.trim()) {
+                        try {
+                            data = JSON.parse(responseText);
+                            console.log("Parsed API Response:", endpoint, data);
+                        } catch (e) {
+                            console.error("Failed to parse JSON response:", e);
+                            throw new Error("Invalid JSON response from server");
+                        }
+                    }
+                    return data;
+            } catch (error) {
+                console.error("API Error:", error);
+                showMessage(`Error: ${error.message}. Please try refreshing the page.`, true);
+                isGameActive = false;
+                return null;
+            }
+        }
+
+        // --- Game Logic ---
+
+        function renderBoard(cells) {
+            boardContainer.innerHTML = '';
+            
+            // Check if cells array is valid before rendering
+            if (!cells || cells.length !== 3 || cells[0].length !== 3) {
+                console.error("Invalid board data:", cells);
+                cells = [[' ', ' ', ' '], [' ', ' ', ' '], [' ', ' ', ' ']];
+            }
+
+            cells.forEach((rowArr, row) => {
+                rowArr.forEach((cellValue, col) => {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell', 'rounded-lg');
+                    cell.textContent = cellValue === ' ' ? '' : cellValue;
+                    
+                    if (cellValue === 'X') {
+                        cell.classList.add('x-player');
+                    } else if (cellValue === 'O') {
+                        cell.classList.add('o-player');
+                    }
+
+                    if (isGameActive && cellValue === ' ') {
+                        cell.onclick = () => handleMove(row, col);
+                        cell.classList.remove('cursor-default');
+                        cell.classList.add('cursor-pointer', 'hover:ring-2', 'hover:ring-blue-400/50'); 
+                    } else {
+                        cell.style.cursor = 'default';
+                        cell.classList.remove('cursor-pointer', 'hover:ring-2', 'hover:ring-blue-400/50');
+                        cell.classList.add('cursor-default'); 
+                    }
+
+                    boardContainer.appendChild(cell);
+                });
+            });
+        }
+
+        function handleStatus(data) {
+            const status = data.status;
+            window.currentBoard = data.board;
+            isGameActive = (status === 'IN_PROGRESS');
+            
+            if (status === 'IN_PROGRESS') {
+                showMessage("Your turn (X).");
+            } else if (status === 'X_WINS') {
+                showMessage("You win! (X) - Click 'Start New Game' to play again.");
+            } else if (status === 'O_WINS') {
+                showMessage("AI wins! (O) - Click 'Start New Game' to play again.");
+            } else if (status === 'DRAW') {
+                showMessage("It's a draw! - Click 'Start New Game' to play again.");
+            }
+
+            if (window.currentBoard && window.currentBoard.length === 3) {
+                renderBoard(window.currentBoard); 
+            } else {
+                console.error("API response did not contain a valid 3x3 board array.");
+                showMessage("Error: Invalid game data received from server.", true);
+            }
+        }
+
+        let moveInProgress = false;
+
+        async function handleMove(row, col) {
+            // Prevent multiple moves while processing or when game is inactive
+            if (!isGameActive || moveInProgress) return;
+
+            try {
+                moveInProgress = true;
+                isGameActive = false; // Disable board interaction
+                showMessage("AI is thinking...");
+                boardContainer.style.opacity = "0.7"; // Visual feedback
+                
+                const data = await apiCall(`/move/${row}/${col}`, 'POST');
+
+                if (data) {
+                    handleStatus(data);
+                } else {
+                    isGameActive = false;
+                    showMessage("Error occurred. Click 'Start New Game' to try again.", true);
+                    renderBoard(window.currentBoard);
+                }
+            } catch (error) {
+                console.error("Move error:", error);
+                showMessage("Error making move. Please try again.", true);
+                isGameActive = true; // Re-enable moves since this one failed
+            } finally {
+                moveInProgress = false;
+                boardContainer.style.opacity = "1";
+            }
+        }
+
+        window.startNewGame = async function() {
+            try {
+                showMessage("Starting new game...");
+                newGameButton.disabled = true;
+                boardContainer.style.opacity = "0.7";
+                
+                console.log("Starting new game...");
+                const data = await apiCall('/new', 'POST');
+                console.log("New game response:", data);
+                
+                if (data && Array.isArray(data.board) && data.board.length === 3) {
+                    handleStatus(data);
+                    isGameActive = true;
+                    showMessage("Your turn (X)");
+                } else {
+                    console.error("Invalid board data:", data);
+                    throw new Error("Invalid game data received from server");
+                }
+            } catch (error) {
+                console.error("New game error:", error);
+                showMessage(`Failed to start new game: ${error.message}`, true);
+                isGameActive = false;
+            } finally {
+                newGameButton.disabled = false;
+                boardContainer.style.opacity = "1";
+            }
+        }
+
+        // Initial load state
+        window.onload = () => {
+            renderBoard(window.currentBoard); 
+            showMessage("Click 'Start New Game' to begin.");
+        };
+    </script>
+</body>
+</html>
