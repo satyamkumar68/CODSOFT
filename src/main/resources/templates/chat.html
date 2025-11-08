@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Java Rule-Based Chatbot</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Basic CSS Styling -->
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #e9eff5; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .chat-container {
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 6px 15px rgba(0,0,0,0.1);
+            width: 90%;
+            max-width: 450px;
+            display: flex;
+            flex-direction: column;
+            height: 80vh; /* Responsive height */
+            min-height: 400px;
+        }
+        .chat-header {
+            background-color: #007bff;
+            color: white;
+            padding: 15px;
+            border-radius: 10px 10px 0 0;
+            text-align: center;
+            font-size: 1.2em;
+        }
+        .chat-box {
+            flex-grow: 1;
+            padding: 15px;
+            overflow-y: auto;
+            background-color: #f8f9fa;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .message {
+            margin-bottom: 12px;
+            padding: 10px 15px;
+            border-radius: 20px;
+            max-width: 85%;
+            line-height: 1.4;
+            font-size: 0.95em;
+            word-wrap: break-word;
+        }
+        
+        .message-bot {
+            background-color: #d1ecf1;
+            margin-right: auto;
+            border-bottom-left-radius: 5px;
+        }
+        
+        /* User Message (Right aligned, light green) */
+        .message-user {
+            background-color: #d4edda;
+            margin-left: auto;
+            text-align: left;
+            border-bottom-right-radius: 5px;
+        }
+        
+        .input-form {
+            display: flex;
+            padding: 15px;
+            border-top: 1px solid #ccc;
+        }
+        .input-form input[type="text"] {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 20px 0 0 20px;
+            outline: none;
+            transition: border-color 0.3s;
+            font-size: 1em; /* Mobile friendly text size */
+        }
+        .input-form input[type="text"]:focus {
+            border-color: #007bff;
+        }
+        .input-form button {
+            padding: 10px 15px; 
+            border: none; 
+            background-color: #007bff; 
+            color: white; 
+            border-radius: 0 20px 20px 0; 
+            cursor: pointer; 
+            transition: background-color 0.3s;
+            font-size: 1em;
+        }
+        .input-form button:hover { 
+            background-color: #0056b3; 
+        }
+    </style>
+</head>
+<body>
+
+<div class="chat-container">
+    <div class="chat-header">Rule-Based Chatbot (Task 1)</div>
+    
+    <div class="chat-box" id="chatBox">
+        
+        <div th:each="message : ${chatHistory}" 
+             th:class="${message.sender == 'User' ? 'message message-user' : 'message message-bot'}">
+            <span th:text="${message.text}">Message text...</span>
+        </div>
+
+    </div>
+
+    <form class="input-form" th:action="@{/chat}" method="GET">
+        <input type="text" id="query" name="query" placeholder="Ask me about Java, Regex, or say hello..." required autofocus />
+        <button type="submit">Send</button>
+    </form>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const chatBox = document.getElementById('chatBox');
+        chatBox.scrollTop = chatBox.scrollHeight;
+    });
+</script>
+
+</body>
+</html>
